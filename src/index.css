@@ -1,0 +1,14 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Cascadia Code', 'Consolas', 'Ubuntu Mono', monospace;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  @apply min-h-screen bg-zinc-950 text-zinc-100 antialiased;
+}
