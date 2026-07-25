@@ -48,6 +48,8 @@ npm run preview
 
 The production build uses base path `/secure-toolkit/` for GitHub project Pages. After building, `404.html` is copied from `index.html` so client-side routes work on refresh.
 
+<!-- trigger: redeploy to GitHub Pages -->
+ 
 If you rename the GitHub repository, update `repoName` in [`vite.config.ts`](vite.config.ts) and the footer link in [`src/layout/Layout.tsx`](src/layout/Layout.tsx).
 
 ## Deploy to GitHub Pages
