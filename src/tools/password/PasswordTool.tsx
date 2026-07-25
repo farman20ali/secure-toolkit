@@ -14,6 +14,8 @@ const DEFAULT_OPTIONS: PasswordOptions = {
   digits: true,
   symbols: true,
   excludeAmbiguous: false,
+  useCustomSymbols: false,
+  customSymbols: '',
 }
 
 const ERROR_MESSAGES = {
@@ -58,6 +60,9 @@ export default function PasswordTool() {
   const [poolSize, setPoolSize] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [visible, setVisible] = useState(true)
+  const [customSymbolsInput, setCustomSymbolsInput] = useState(
+    DEFAULT_OPTIONS.customSymbols,
+  )
 
   const regenerate = useCallback(() => {
     const result = generatePassword(options)
@@ -214,6 +219,36 @@ export default function PasswordTool() {
             checked={options.symbols}
             onChange={(v) => updateOption('symbols', v)}
           />
+          <ToggleRow
+            id="opt-custom-symbols-enabled"
+            label="Use custom symbols"
+            checked={!!options.useCustomSymbols}
+            onChange={(v) => updateOption('useCustomSymbols', v)}
+          />
+          {options.useCustomSymbols && (
+            <div className="mt-2">
+              <label
+                htmlFor="custom-symbols"
+                className="mb-1 block text-xs text-zinc-400"
+              >
+                Custom symbols
+              </label>
+              <input
+                id="custom-symbols"
+                type="text"
+                value={customSymbolsInput}
+                onChange={(e) => setCustomSymbolsInput(e.target.value)}
+                onBlur={() => updateOption('customSymbols', customSymbolsInput)}
+                placeholder="e.g. ~€±_@"
+                className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-sm"
+                aria-label="Custom symbols"
+              />
+              <p className="pt-1 text-xs text-zinc-500">
+                These characters will be used in addition to the standard
+                symbol set.
+              </p>
+            </div>
+          )}
           <p className="pt-1 text-xs text-zinc-500">
             Combined pool size (preview): {combinedPreview} characters
           </p>

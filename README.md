@@ -59,6 +59,8 @@ If you rename the GitHub repository, update `repoName` in [`vite.config.ts`](vit
 3. In the repo: **Settings → Pages → Build and deployment → Source** → select **GitHub Actions**.
 4. The [deploy workflow](.github/workflows/deploy-pages.yml) runs on every push to `main`.
 
+Note: Some of the publishing and deployment steps above were generated with assistance from an AI to help streamline the process.
+
 Replace `YOUR_USERNAME` in the site footer with your GitHub username before publishing.
 
 ## Threat model (short)

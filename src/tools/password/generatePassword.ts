@@ -13,6 +13,8 @@ export type PasswordOptions = {
   digits: boolean
   symbols: boolean
   excludeAmbiguous: boolean
+  useCustomSymbols?: boolean
+  customSymbols?: string
 }
 
 export type PasswordValidationError =
@@ -40,6 +42,7 @@ export function validatePasswordOptions(
     options.lowercase,
     options.digits,
     options.symbols,
+    options.useCustomSymbols && !!options.customSymbols,
   ].filter(Boolean).length
 
   if (requiredSets === 0) {
@@ -71,6 +74,9 @@ export function getCharsetPools(options: PasswordOptions): string[] {
   }
   if (options.symbols) {
     pools.push(buildPool(SYMBOL_POOL, options.excludeAmbiguous))
+  }
+  if (options.useCustomSymbols && options.customSymbols) {
+    pools.push(buildPool(options.customSymbols, options.excludeAmbiguous))
   }
   return pools
 }
