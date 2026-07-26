@@ -1,30 +1,26 @@
 # Secure Toolkit
 
-Privacy-first security utilities that run entirely in your browser. No backend, no analytics on generated secrets.
+Privacy-first security and developer utilities that run entirely in your browser. No backend, no analytics, and no tracking. All processing and generation happen fully locally.
 
 **Live site:** `https://farman20ali.github.io/secure-toolkit/`
 
 ## Tools
 
-| Tool | Status |
-|------|--------|
-| Password Generator | Live |
-| UUID Generator | Coming soon |
-| Base64 Encode / Decode | Coming soon |
-| JSON Beautify | Coming soon |
+| Tool | Status | Key Features |
+|------|--------|--------------|
+| **Password Generator** | Live | Custom lengths, custom character sets, entropy estimation. |
+| **UUID Generator** | Live | RFC 4122 v4 (random) and RFC 9562 v7 (timestamp-ordered) UUIDs. |
+| **Base64 Encode / Decode** | Live | Full UTF-8 emoji-safe conversion, URL-safe Base64 formatting. |
+| **Code Beautifier** | Live | Format or minify JSON, XML, HTML, and SQL queries locally. Loose JSON parser. |
+| **Code Diff & Comparer** | Live | 2-way and 3-way side-by-side file alignment diffs with optional semantic pre-formatting. |
+| **Hash Generator** | Live | Generate SHA-256, SHA-512, SHA-1, SHA-384, and MD5 hashes. Supports local file drag & drop. |
+| **JWT Decoder** | Live | Visual decoding of Header, Claims Payload, and Signature. Expiration check. |
+| **URL Encode / Decode** | Live | Interactive component and full URI encoding and decoding. |
+| **RSA Key Generator** | Live | Local generation of RSA key pairs (up to 4096-bit) in PEM format via Web Crypto. |
 
-## Password generator
+---
 
-- Length 8–128 (default 20)
-- Uppercase, lowercase, digits, symbols
-- Optional exclusion of ambiguous characters (`0`, `O`, `1`, `l`, `I`)
-- At least one character from each enabled set
-- Entropy estimate and strength label
-- Copy, regenerate, show/hide
-
-Randomness uses the Web Crypto API (`crypto.getRandomValues()`). Passwords are not stored in `localStorage` or sent over the network.
-
-## Local development
+## Local Development
 
 ```bash
 npm install
@@ -33,40 +29,29 @@ npm run dev
 
 Open the URL shown in the terminal (usually `http://localhost:5173`).
 
-## Tests
+### Running Tests
 
 ```bash
 npm run test
 ```
 
-## Production build
+### Production Build
 
 ```bash
 npm run build
 npm run preview
 ```
 
-The production build uses base path `/secure-toolkit/` for GitHub project Pages. After building, `404.html` is copied from `index.html` so client-side routes work on refresh.
+The production build uses the base path `/secure-toolkit/` for GitHub project Pages. After building, `404.html` is automatically copied from `index.html` to support client-side routing on reload.
 
-<!-- trigger: redeploy to GitHub Pages -->
- 
-If you rename the GitHub repository, update `repoName` in [`vite.config.ts`](vite.config.ts) and the footer link in [`src/layout/Layout.tsx`](src/layout/Layout.tsx).
+---
 
-## Deploy to GitHub Pages
+## Threat Model & Security Policy
 
-1. Create a public GitHub repository named **secure-toolkit** (or match the name in `vite.config.ts`).
-2. Push this project to the `main` branch.
-3. In the repo: **Settings → Pages → Build and deployment → Source** → select **GitHub Actions**.
-4. The [deploy workflow](.github/workflows/deploy-pages.yml) runs on every push to `main`.
-
-Note: Some of the publishing and deployment steps above were generated with assistance from an AI to help streamline the process.
-
-Replace `YOUR_USERNAME` in the site footer with your GitHub username before publishing.
-
-## Threat model (short)
-
-You trust the JavaScript served from GitHub Pages matches this repository. Verify deployments via commit history and, optionally, Subresource Integrity if you add a CDN later. Generated values exist only in your browser memory unless you copy them elsewhere.
+1. **Zero External Requests**: No input data, generated secrets, files, or tokens are ever sent over the network. All operations are performed strictly in the browser memory sandbox.
+2. **Standard Web Cryptography**: Random number generation, hash calculation (SHA), and RSA key generation rely on the native Web Crypto API (`window.crypto`), ensuring strong cryptographic primitives.
+3. **Open Source Verification**: You can verify that the Javascript running matches the repository code by inspecting the source directly or running a local instance.
 
 ## License
 
-MIT (add a `LICENSE` file if you publish publicly).
+MIT License.

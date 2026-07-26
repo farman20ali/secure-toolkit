@@ -2,8 +2,17 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { Layout } from './layout/Layout'
 import { ComingSoonPage } from './pages/ComingSoonPage'
 import { HomePage } from './pages/HomePage'
-import PasswordTool from './tools/password/PasswordTool'
 import { getToolById, tools } from './tools/registry'
+
+import PasswordTool from './tools/password/PasswordTool'
+import UuidTool from './tools/uuid/UuidTool'
+import Base64Tool from './tools/base64/Base64Tool'
+import CodeBeautifyTool from './tools/code-beautify/CodeBeautifyTool'
+import CodeCompareTool from './tools/code-compare/CodeCompareTool'
+import HashGeneratorTool from './tools/hash-generator/HashGeneratorTool'
+import JwtDecoderTool from './tools/jwt-decoder/JwtDecoderTool'
+import UrlCodecTool from './tools/url-codec/UrlCodecTool'
+import RsaGeneratorTool from './tools/rsa-generator/RsaGeneratorTool'
 
 function routerBasename(): string | undefined {
   const trimmed = import.meta.env.BASE_URL.replace(/\/$/, '')
@@ -20,10 +29,28 @@ function ToolRoute({ toolId }: { toolId: string }) {
       <ComingSoonPage title={tool.title} description={tool.description} />
     )
   }
-  if (toolId === 'password') {
-    return <PasswordTool />
+  switch (toolId) {
+    case 'password':
+      return <PasswordTool />
+    case 'uuid':
+      return <UuidTool />
+    case 'base64':
+      return <Base64Tool />
+    case 'code-beautify':
+      return <CodeBeautifyTool />
+    case 'code-compare':
+      return <CodeCompareTool />
+    case 'hash-generator':
+      return <HashGeneratorTool />
+    case 'jwt-decoder':
+      return <JwtDecoderTool />
+    case 'url-codec':
+      return <UrlCodecTool />
+    case 'rsa-generator':
+      return <RsaGeneratorTool />
+    default:
+      return <Navigate to="/" replace />
   }
-  return <Navigate to="/" replace />
 }
 
 export default function App() {
