@@ -55,8 +55,8 @@ export const tools: ToolDefinition[] = [
   {
     id: 'jwt-decoder',
     path: '/tools/jwt-decoder',
-    title: 'JWT Decoder',
-    description: 'Inspect and decode JSON Web Tokens locally with expiration checks.',
+    title: 'JWT Encoder & Decoder',
+    description: 'Decode and inspect existing JWTs, or sign new ones with HMAC (HS256/384/512) locally.',
     status: 'live',
   },
   {

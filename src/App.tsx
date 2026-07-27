@@ -10,7 +10,7 @@ import Base64Tool from './tools/base64/Base64Tool'
 import CodeBeautifyTool from './tools/code-beautify/CodeBeautifyTool'
 import CodeCompareTool from './tools/code-compare/CodeCompareTool'
 import HashGeneratorTool from './tools/hash-generator/HashGeneratorTool'
-import JwtDecoderTool from './tools/jwt-decoder/JwtDecoderTool'
+import JwtTool from './tools/jwt-decoder/JwtDecoderTool'
 import UrlCodecTool from './tools/url-codec/UrlCodecTool'
 import RsaGeneratorTool from './tools/rsa-generator/RsaGeneratorTool'
 
@@ -43,7 +43,7 @@ function ToolRoute({ toolId }: { toolId: string }) {
     case 'hash-generator':
       return <HashGeneratorTool />
     case 'jwt-decoder':
-      return <JwtDecoderTool />
+      return <JwtTool />
     case 'url-codec':
       return <UrlCodecTool />
     case 'rsa-generator':
