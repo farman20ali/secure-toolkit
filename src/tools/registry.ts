@@ -73,6 +73,20 @@ export const tools: ToolDefinition[] = [
     description: 'Generate public/private RSA keys (up to 4096-bit) locally using Web Crypto.',
     status: 'live',
   },
+  {
+    id: 'cert-inspector',
+    path: '/tools/cert-inspector',
+    title: 'X.509 Certificate Tool',
+    description: 'Inspect X.509 certificates (Subject, Issuer, Validity, Fingerprint) or generate RSA key pairs.',
+    status: 'live',
+  },
+  {
+    id: 'passkey',
+    path: '/tools/passkey',
+    title: 'Passkey & WebAuthn Tool',
+    description: 'Test WebAuthn FIDO2 Passkey credentials locally, inspect authenticators, and parse clientDataJSON.',
+    status: 'live',
+  },
 ]
 
 export function getToolById(id: string): ToolDefinition | undefined {

@@ -13,6 +13,8 @@ import HashGeneratorTool from './tools/hash-generator/HashGeneratorTool'
 import JwtTool from './tools/jwt-decoder/JwtDecoderTool'
 import UrlCodecTool from './tools/url-codec/UrlCodecTool'
 import RsaGeneratorTool from './tools/rsa-generator/RsaGeneratorTool'
+import CertTool from './tools/cert-inspector/CertTool'
+import PasskeyTool from './tools/passkey/PasskeyTool'
 
 function routerBasename(): string | undefined {
   const trimmed = import.meta.env.BASE_URL.replace(/\/$/, '')
@@ -48,6 +50,10 @@ function ToolRoute({ toolId }: { toolId: string }) {
       return <UrlCodecTool />
     case 'rsa-generator':
       return <RsaGeneratorTool />
+    case 'cert-inspector':
+      return <CertTool />
+    case 'passkey':
+      return <PasskeyTool />
     default:
       return <Navigate to="/" replace />
   }
