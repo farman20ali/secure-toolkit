@@ -180,6 +180,32 @@ export const tools: ToolDefinition[] = [
     status: 'live',
   },
 
+  // 📧 SMTP Security & Mail Tester Studio
+  {
+    id: 'smtp-tester',
+    path: '/tools/smtp-tester',
+    title: 'SMTP Security & Mail Tester Studio',
+    icon: '📧',
+    description:
+      'Verify Google App Passwords, SMTP credentials, TLS ports, protocol handshake sequences, and terminal diagnostic code snippets.',
+    category: 'web-security',
+    status: 'live',
+    popular: true,
+  },
+
+  // 🔍 JSON Explorer & Diagnostic Lab
+  {
+    id: 'json-explorer',
+    path: '/tools/json-explorer',
+    title: 'JSON Explorer & Diagnostic Lab',
+    icon: '🔍',
+    description:
+      'Validate, auto-repair, traverse tree hierarchy, view object graphs, query JSONPath, generate schemas, and scan for nested leaked secrets.',
+    category: 'file-encoding',
+    status: 'live',
+    popular: true,
+  },
+
   // Existing Tools
   {
     id: 'password',
