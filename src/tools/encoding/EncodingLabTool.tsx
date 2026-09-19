@@ -33,7 +33,7 @@ export default function EncodingLabTool() {
           <span>Chainable Multi-Format Encoding Lab</span>
         </h1>
         <p className="mt-1 text-xs sm:text-sm font-medium text-slate-600 dark:text-zinc-400">
-          Build multi-step encoding and decoding pipelines with live intermediate step previews (Base64, Base64URL, Hex, Binary, URL, HTML).
+          Build multi-step encoding and decoding pipelines with live intermediate step previews (Base64, Base64URL, <strong>Base32</strong>, Hex, Binary, URL, HTML).
         </p>
       </div>
 
@@ -62,6 +62,24 @@ export default function EncodingLabTool() {
               className="rounded bg-zinc-800 px-3 py-1.5 text-zinc-200 hover:bg-zinc-700"
             >
               + Base64 Encode
+            </button>
+            <button
+              onClick={() => addStep('base64', 'decode')}
+              className="rounded bg-zinc-800 px-3 py-1.5 text-zinc-200 hover:bg-zinc-700"
+            >
+              + Base64 Decode
+            </button>
+            <button
+              onClick={() => addStep('base32', 'encode')}
+              className="rounded bg-emerald-900/60 px-3 py-1.5 text-emerald-300 hover:bg-emerald-900 border border-emerald-800"
+            >
+              + Base32 Encode
+            </button>
+            <button
+              onClick={() => addStep('base32', 'decode')}
+              className="rounded bg-emerald-900/60 px-3 py-1.5 text-emerald-300 hover:bg-emerald-900 border border-emerald-800"
+            >
+              + Base32 Decode
             </button>
             <button
               onClick={() => addStep('hex', 'encode')}

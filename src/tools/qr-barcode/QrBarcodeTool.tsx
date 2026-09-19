@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import QRCode from 'qrcode'
-import jsQR from 'jsqr'
 import JsBarcode from 'jsbarcode'
 import { CopyButton } from '../../components/CopyButton'
 import {
@@ -13,6 +12,7 @@ import {
   buildSmsQrPayload,
   buildCryptoQrPayload,
 } from './qr-barcode-logic'
+import { scanBarcodeFromImage, scanCameraFrame } from './barcode-scanner-engine'
 
 export default function QrBarcodeTool() {
   const [activeTab, setActiveTab] = useState<'qr-studio' | 'qr-scan' | 'barcode' | 'batch'>('qr-studio')
@@ -501,45 +501,46 @@ export default function QrBarcodeTool() {
   }
 
   // ─── Tab 2: Scanner & Security State ─────────────────────────────────────
+  // Multi-engine client-side barcode scanner: Native BarcodeDetector (GPU), jsQR, and pre-processed ZXing.
+  // 100% browser-side, zero network calls, instant detection.
   const [scannedText, setScannedText] = useState<string>('')
+  const [scannedFormat, setScannedFormat] = useState<string>('')
+  const [scannedEngine, setScannedEngine] = useState<string>('')
+  const [scannedDuration, setScannedDuration] = useState<number | null>(null)
   const [scanError, setScanError] = useState<string>('')
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false)
+  const [isScanning, setIsScanning] = useState<boolean>(false)
   const videoRef = useRef<HTMLVideoElement | null>(null)
-  const animFrameRef = useRef<number | null>(null)
+  const cameraAnimFrameRef = useRef<number | null>(null)
+  const cameraStreamRef = useRef<MediaStream | null>(null)
+
+  // Decode an image file using multi-engine pipeline
+  const processImageFile = async (file: File) => {
+    setScanError('')
+    setScannedText('')
+    setScannedFormat('')
+    setScannedEngine('')
+    setScannedDuration(null)
+    setIsScanning(true)
+
+    try {
+      const res = await scanBarcodeFromImage(file)
+      setScannedText(res.text)
+      setScannedFormat(res.format)
+      setScannedEngine(res.engine)
+      setScannedDuration(res.durationMs)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      setScanError(msg || 'No QR code or barcode detected in the image.')
+    } finally {
+      setIsScanning(false)
+    }
+  }
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     processImageFile(file)
-  }
-
-  const processImageFile = (file: File) => {
-    setScanError('')
-    setScannedText('')
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      const img = new Image()
-      img.onload = () => {
-        const canvas = document.createElement('canvas')
-        canvas.width = img.width
-        canvas.height = img.height
-        const ctx = canvas.getContext('2d')
-        if (!ctx) {
-          setScanError('Failed to initialize canvas context.')
-          return
-        }
-        ctx.drawImage(img, 0, 0)
-        const imageData = ctx.getImageData(0, 0, img.width, img.height)
-        const code = jsQR(imageData.data, imageData.width, imageData.height)
-        if (code) {
-          setScannedText(code.data)
-        } else {
-          setScanError('No readable QR code found in the image.')
-        }
-      }
-      img.src = event.target?.result as string
-    }
-    reader.readAsDataURL(file)
   }
 
   // Paste from clipboard support (Ctrl+V or button)
@@ -550,68 +551,102 @@ export default function QrBarcodeTool() {
         for (const type of item.types) {
           if (type.startsWith('image/')) {
             const blob = await item.getType(type)
-            const file = new File([blob], 'pasted-qr.png', { type })
+            const file = new File([blob], 'pasted-image.png', { type })
             processImageFile(file)
             return
           }
         }
       }
       const text = await navigator.clipboard.readText()
-      if (text) setScannedText(text)
+      if (text) {
+        setScannedText(text)
+        setScannedFormat('TEXT')
+        setScannedEngine('Clipboard Text')
+        setScannedDuration(0)
+      }
     } catch {
       setScanError('Could not read image from clipboard. Make sure clipboard access is granted.')
     }
   }
 
-  // Camera Scanning Loop
-  const startCamera = async () => {
-    setScanError('')
-    setIsCameraActive(true)
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' },
-      })
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        videoRef.current.play()
-        scanCameraFrame()
-      }
-    } catch {
-      setScanError('Camera access denied or unavailable.')
-      setIsCameraActive(false)
-    }
-  }
-
   const stopCamera = useCallback(() => {
     setIsCameraActive(false)
-    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream
-      stream.getTracks().forEach((track) => track.stop())
+    setIsScanning(false)
+    if (cameraAnimFrameRef.current !== null) {
+      cancelAnimationFrame(cameraAnimFrameRef.current)
+      cameraAnimFrameRef.current = null
+    }
+    if (cameraStreamRef.current) {
+      cameraStreamRef.current.getTracks().forEach((track) => track.stop())
+      cameraStreamRef.current = null
+    }
+    if (videoRef.current) {
       videoRef.current.srcObject = null
     }
   }, [])
 
-  const scanCameraFrame = () => {
-    if (!videoRef.current || videoRef.current.readyState !== videoRef.current.HAVE_ENOUGH_DATA) {
-      animFrameRef.current = requestAnimationFrame(scanCameraFrame)
-      return
-    }
-    const canvas = document.createElement('canvas')
-    canvas.width = videoRef.current.videoWidth
-    canvas.height = videoRef.current.videoHeight
-    const ctx = canvas.getContext('2d')
-    if (ctx) {
-      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height)
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      const code = jsQR(imageData.data, imageData.width, imageData.height)
-      if (code) {
-        setScannedText(code.data)
-        stopCamera()
-        return
+  // Start continuous frame camera scan — native BarcodeDetector GPU + fallback
+  const startCamera = async () => {
+    setScanError('')
+    setScannedText('')
+    setScannedFormat('')
+    setScannedEngine('')
+    setScannedDuration(null)
+    setIsCameraActive(true)
+    setIsScanning(true)
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      })
+
+      cameraStreamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        await videoRef.current.play()
       }
+
+      // Frame loop for camera detection
+      let isLoopRunning = true
+
+      const scanLoop = async () => {
+        if (!isLoopRunning || !videoRef.current) return
+
+        try {
+          const result = await scanCameraFrame(videoRef.current)
+          if (result && isLoopRunning) {
+            setScannedText(result.text)
+            setScannedFormat(result.format)
+            setScannedEngine(result.engine)
+            setScannedDuration(result.durationMs)
+            isLoopRunning = false
+            stopCamera()
+            return
+          }
+        } catch {
+          // Continue scanning
+        }
+
+        if (isLoopRunning) {
+          cameraAnimFrameRef.current = requestAnimationFrame(scanLoop)
+        }
+      }
+
+      cameraAnimFrameRef.current = requestAnimationFrame(scanLoop)
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (msg.includes('Permission') || msg.includes('denied') || msg.includes('NotAllowed')) {
+        setScanError('Camera access denied. Please allow camera permissions and try again.')
+      } else {
+        setScanError('Camera unavailable: ' + msg)
+      }
+      setIsCameraActive(false)
+      setIsScanning(false)
     }
-    animFrameRef.current = requestAnimationFrame(scanCameraFrame)
   }
 
   useEffect(() => {
@@ -619,6 +654,7 @@ export default function QrBarcodeTool() {
       stopCamera()
     }
   }, [stopCamera])
+
 
   const securityReport = scannedText ? analyzeQrSecurity(scannedText) : null
 
@@ -654,45 +690,89 @@ export default function QrBarcodeTool() {
 
   const barcodeValidation = validateBarcode(barcodeFormat, barcodeValue)
 
+  // Helper: serialize SVG to an inline base64 data URL (avoids Chrome canvas-taint on blob URLs)
+  const svgToDataUrl = (svgEl: SVGSVGElement): { dataUrl: string; w: number; h: number } => {
+    // JsBarcode sets width/height attrs directly — read those first for accuracy
+    const attrW = parseFloat(svgEl.getAttribute('width') || '0')
+    const attrH = parseFloat(svgEl.getAttribute('height') || '0')
+    const w = attrW || svgEl.clientWidth || 600
+    const h = attrH || svgEl.clientHeight || 160
+
+    // Clone and stamp explicit dimensions so the browser knows the intrinsic size
+    const clone = svgEl.cloneNode(true) as SVGSVGElement
+    clone.setAttribute('width', String(w))
+    clone.setAttribute('height', String(h))
+    // Inline namespace required for standalone SVG rendering
+    if (!clone.getAttribute('xmlns')) clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+
+    const svgStr = new XMLSerializer().serializeToString(clone)
+    // base64 data URL — works in Chrome/Firefox/Safari without canvas taint
+    const dataUrl = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgStr)))
+    return { dataUrl, w, h }
+  }
+
+  // Rasterize barcode SVG → PNG/JPEG canvas, then call callback with the canvas
+  const rasterizeBarcode = (cb: (canvas: HTMLCanvasElement) => void) => {
+    const svg = barcodeSvgRef.current
+    if (!svg) return
+    const { dataUrl, w, h } = svgToDataUrl(svg)
+    const scale = 2 // retina-quality
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.round(w * scale)
+      canvas.height = Math.round(h * scale)
+      const ctx = canvas.getContext('2d')!
+      ctx.fillStyle = barcodeBgColor
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      cb(canvas)
+    }
+    img.onerror = () => console.error('Failed to load barcode SVG for rasterization')
+    img.src = dataUrl
+  }
+
   const handleDownloadBarcode = (format: 'svg' | 'png' | 'jpeg') => {
     const svg = barcodeSvgRef.current
     if (!svg) return
 
     if (format === 'svg') {
-      const serializer = new XMLSerializer()
-      const svgStr = serializer.serializeToString(svg)
-      const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' })
-      const url = URL.createObjectURL(blob)
+      const { dataUrl } = svgToDataUrl(svg)
       const a = document.createElement('a')
-      a.href = url
+      a.href = dataUrl
       a.download = `barcode-${barcodeFormat}-${Date.now()}.svg`
+      document.body.appendChild(a)
       a.click()
-      URL.revokeObjectURL(url)
+      document.body.removeChild(a)
       return
     }
 
-    // Rasterize SVG → Canvas → PNG/JPEG
-    const serializer = new XMLSerializer()
-    const svgStr = serializer.serializeToString(svg)
-    const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' })
-    const svgUrl = URL.createObjectURL(svgBlob)
-    const img = new Image()
-    img.onload = () => {
-      const canvas = document.createElement('canvas')
-      canvas.width = img.naturalWidth || svg.clientWidth || 600
-      canvas.height = img.naturalHeight || svg.clientHeight || 160
-      const ctx = canvas.getContext('2d')!
-      ctx.fillStyle = barcodeBgColor
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-      ctx.drawImage(img, 0, 0)
-      const dataUrl = canvas.toDataURL(`image/${format}`, 1.0)
+    // PNG / JPEG — rasterize via canvas
+    rasterizeBarcode((canvas) => {
+      const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png'
+      const ext = format === 'jpeg' ? 'jpg' : 'png'
+      const dataUrl = canvas.toDataURL(mimeType, 1.0)
       const a = document.createElement('a')
       a.href = dataUrl
-      a.download = `barcode-${barcodeFormat}-${Date.now()}.${format === 'jpeg' ? 'jpg' : format}`
+      a.download = `barcode-${barcodeFormat}-${Date.now()}.${ext}`
+      document.body.appendChild(a)
       a.click()
-      URL.revokeObjectURL(svgUrl)
-    }
-    img.src = svgUrl
+      document.body.removeChild(a)
+    })
+  }
+
+  const handleCopyBarcode = () => {
+    rasterizeBarcode((canvas) => {
+      canvas.toBlob(async (blob) => {
+        if (!blob) { showCopyToast('Copy not supported in this browser.'); return }
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+          showCopyToast('Barcode copied!')
+        } catch {
+          showCopyToast('Copy not supported in this browser.')
+        }
+      }, 'image/png')
+    })
   }
 
   // ─── Tab 4: Bulk Batch Generator State ─────────────────────────────────────
@@ -1521,6 +1601,17 @@ export default function QrBarcodeTool() {
                 Scan Input Source
               </h3>
 
+              {/* Multi-Engine Scanner Badge */}
+              <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/50">
+                <span>⚡</span>
+                <div>
+                  <span className="font-bold">Multi-Engine Hardware-Accelerated Scanner</span>
+                  <span className="ml-1 font-normal opacity-80">
+                    — auto-scales resolution, uses Native BarcodeDetector (GPU), jsQR &amp; pre-processed ZXing. Zero cloud calls.
+                  </span>
+                </div>
+              </div>
+
               <div className="flex flex-wrap gap-3">
                 <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-500 transition-colors">
                   <span>📁 Upload Image File</span>
@@ -1560,9 +1651,17 @@ export default function QrBarcodeTool() {
                   <video ref={videoRef} className="w-full h-full object-cover" muted playsInline />
                   <div className="absolute inset-0 border-2 border-dashed border-emerald-400/70 pointer-events-none rounded-xl m-8 flex items-center justify-center">
                     <span className="bg-black/60 text-emerald-400 text-xs font-bold px-3 py-1 rounded-full animate-pulse">
-                      Scanning for QR code…
+                      Scanning for QR codes &amp; barcodes…
                     </span>
                   </div>
+                </div>
+              )}
+
+              {/* Scanning spinner for image uploads */}
+              {isScanning && !isCameraActive && (
+                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-zinc-400">
+                  <span className="inline-block h-3.5 w-3.5 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
+                  Decoding…
                 </div>
               )}
 
@@ -1584,11 +1683,30 @@ export default function QrBarcodeTool() {
                 </div>
 
                 {scannedText ? (
-                  <div className="rounded-lg bg-slate-100 p-3 font-mono text-xs text-emerald-700 dark:bg-zinc-950 dark:text-emerald-400 break-all border border-slate-200 dark:border-zinc-800">
-                    {scannedText}
-                  </div>
+                  <>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {scannedFormat && (
+                        <span className="inline-flex items-center rounded-full bg-sky-50 px-2.5 py-0.5 text-[10px] font-bold text-sky-700 ring-1 ring-sky-200 dark:bg-sky-950/30 dark:text-sky-400 dark:ring-sky-900">
+                          📊 Format: {scannedFormat.replace(/_/g, ' ').toUpperCase()}
+                        </span>
+                      )}
+                      {scannedEngine && (
+                        <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:ring-emerald-900">
+                          ⚙️ Engine: {scannedEngine}
+                        </span>
+                      )}
+                      {scannedDuration !== null && (
+                        <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:ring-amber-900">
+                          ⚡ {scannedDuration} ms
+                        </span>
+                      )}
+                    </div>
+                    <div className="rounded-lg bg-slate-100 p-3 font-mono text-xs text-emerald-700 dark:bg-zinc-950 dark:text-emerald-400 break-all border border-slate-200 dark:border-zinc-800">
+                      {scannedText}
+                    </div>
+                  </>
                 ) : (
-                  <p className="text-xs text-slate-400 dark:text-zinc-500 italic">No QR code scanned yet.</p>
+                  <p className="text-xs text-slate-400 dark:text-zinc-500 italic">No QR code or barcode scanned yet.</p>
                 )}
               </div>
 
@@ -1816,7 +1934,7 @@ export default function QrBarcodeTool() {
               </span>
             </div>
 
-            {/* Download Buttons */}
+            {/* Download & Copy Buttons */}
             <div className="space-y-2">
               <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-500">Download</span>
               <div className="grid grid-cols-3 gap-2">
@@ -1848,6 +1966,20 @@ export default function QrBarcodeTool() {
               {!barcodeValidation.valid && (
                 <p className="text-[10px] text-red-500 dark:text-red-400">Fix the validation error above to enable downloads.</p>
               )}
+
+              {/* Copy to Clipboard */}
+              <button
+                type="button"
+                onClick={handleCopyBarcode}
+                disabled={!barcodeValidation.valid}
+                className="w-full rounded-lg border-2 border-emerald-500 bg-white px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-50 active:scale-95 transition-all flex items-center justify-center gap-2 dark:bg-zinc-900 dark:text-emerald-400 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {copyToast === 'Barcode copied!' ? (
+                  <><span>✓</span><span>Copied to Clipboard!</span></>
+                ) : (
+                  <><span>📋</span><span>Copy Barcode Image</span></>
+                )}
+              </button>
             </div>
           </div>
         </div>

@@ -62,7 +62,9 @@ function ToolRoute({ toolId }: { toolId: string }) {
     case 'uuid':
       return <UuidTool />
     case 'base64':
+    case 'base32':
       return <Base64Tool />
+
     case 'code-beautify':
       return <CodeBeautifyTool />
     case 'code-compare':
@@ -97,7 +99,9 @@ export default function App() {
               element={<ToolRoute toolId={tool.id} />}
             />
           ))}
+          <Route path="/tools/base32" element={<Base64Tool />} />
           <Route path="*" element={<Navigate to="/" replace />} />
+
         </Routes>
       </Layout>
     </BrowserRouter>

@@ -204,12 +204,15 @@ export const tools: ToolDefinition[] = [
   {
     id: 'base64',
     path: '/tools/base64',
-    title: 'Base64 Encode / Decode',
+    title: 'Base32 & Base64 Encoder / Decoder',
     icon: '🔤',
-    description: 'Convert text to and from Base64 with UTF-8 support.',
+    description:
+      'Encode, decode, and generate Base32 (RFC 4648 / TOTP 2FA secrets) and Base64 (Standard & URL-safe) keys.',
     category: 'file-encoding',
     status: 'live',
   },
+
+
   {
     id: 'code-beautify',
     path: '/tools/code-beautify',
