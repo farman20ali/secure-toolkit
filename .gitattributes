@@ -1,0 +1,36 @@
+# ── Linguist: tell GitHub what language this repo is ──────────────────────────
+
+# Force the repo to be classified as TypeScript (primary language)
+*.ts    linguist-language=TypeScript
+*.tsx   linguist-language=TypeScript
+
+# Treat generated / vendored / script files as non-primary so they don't skew stats
+dist/**               linguist-generated=true
+node_modules/**       linguist-vendored=true
+script/server-relay.js linguist-language=JavaScript linguist-detectable=true
+
+# Mark test files as not the primary language surface
+src/**/*.test.ts      linguist-detectable=false
+src/**/*.test.tsx     linguist-detectable=false
+
+# Markdown & config are documentation / data, not "code"
+*.md                  linguist-documentation=true
+*.json                linguist-language=JSON  linguist-detectable=false
+*.yml                 linguist-language=YAML  linguist-detectable=false
+*.yaml                linguist-language=YAML  linguist-detectable=false
+
+# ── Line endings ───────────────────────────────────────────────────────────────
+# Normalize line endings to LF in the repo; checkout with native endings
+* text=auto eol=lf
+
+# Force binary files to remain binary
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.svg  binary
+*.woff binary
+*.woff2 binary
+*.ttf  binary
+*.eot  binary

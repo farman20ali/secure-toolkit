@@ -25,8 +25,8 @@ import {
  *  so we use a relative path to stay same-origin and avoid CORS issues.
  */
 function deriveRelayUrl(): string {
-  if (typeof window === 'undefined') return '/api/smtp-test-relay'
-  const { hostname, protocol } = window.location
+  if (typeof window === 'undefined') return 'http://127.0.0.1:3001/api/smtp-test-relay'
+  const { hostname } = window.location
   const isLocal =
     hostname === 'localhost' ||
     hostname === '127.0.0.1' ||
@@ -35,8 +35,10 @@ function deriveRelayUrl(): string {
     hostname.startsWith('192.168.') ||
     hostname.startsWith('10.') ||
     hostname.startsWith('172.')
-  if (isLocal) return '/api/smtp-test-relay'
-  return `${protocol}//${hostname}:3001/api/smtp-test-relay`
+  // When on a local dev server, use a relative URL so Vite's proxy can forward it.
+  // When visiting from any other host (e.g. GitHub Pages), the relay is still a
+  // local process — always point to localhost:3001, never to the public hostname.
+  return isLocal ? '/api/smtp-test-relay' : 'http://127.0.0.1:3001/api/smtp-test-relay'
 }
 
 type RelayStatus = 'idle' | 'checking' | 'online' | 'offline'
