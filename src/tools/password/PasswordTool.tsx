@@ -355,8 +355,11 @@ export default function PasswordTool() {
   return (
     <div className="space-y-8">
       <header className="space-y-2">
-        <h1 className="text-2xl font-bold text-zinc-50">Password &amp; Hash Utilities</h1>
-        <p className="text-sm text-zinc-400">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-zinc-50 flex items-center gap-2">
+          <span>🔑</span>
+          <span>Password &amp; Hash Utilities</span>
+        </h1>
+        <p className="text-sm font-medium text-slate-600 dark:text-zinc-400">
           Generate cryptographically strong passwords, calculate Bcrypt hashes, verify matches, and test PBKDF2 derivations.
         </p>
       </header>

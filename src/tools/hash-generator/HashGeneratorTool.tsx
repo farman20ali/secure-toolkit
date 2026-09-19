@@ -276,9 +276,12 @@ export default function HashGeneratorTool() {
   return (
     <div className="space-y-8">
       <header className="space-y-2">
-        <h1 className="text-2xl font-bold text-zinc-50">Hash &amp; Checksum Generator</h1>
-        <p className="text-sm text-zinc-400">
-          Compute MD5, SHA-1, SHA-256, SHA-384, SHA-512 and HMAC signatures with custom formats. 100% client-side.
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-zinc-50 flex items-center gap-2">
+          <span>🔒</span>
+          <span>Hash &amp; Checksum Generator</span>
+        </h1>
+        <p className="text-sm font-medium text-slate-600 dark:text-zinc-400">
+          Generate secure SHA-256, SHA-512, and MD5 hashes from text or files locally.
         </p>
       </header>
 

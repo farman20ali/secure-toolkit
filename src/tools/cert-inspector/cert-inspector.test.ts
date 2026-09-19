@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseX509Pem } from './CertTool'
+import { parseX509Pem } from './cert-logic'
 
 describe('X.509 Certificate Inspector', () => {
   it('throws descriptive error on invalid PEM input', async () => {

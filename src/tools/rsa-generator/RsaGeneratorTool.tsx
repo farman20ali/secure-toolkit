@@ -82,8 +82,11 @@ export default function RsaGeneratorTool() {
   return (
     <div className="space-y-8">
       <header className="space-y-2">
-        <h1 className="text-2xl font-bold text-zinc-50">RSA Key Pair Generator</h1>
-        <p className="text-sm text-zinc-400">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-zinc-50 flex items-center gap-2">
+          <span>🔑</span>
+          <span>RSA Key Pair Generator</span>
+        </h1>
+        <p className="text-sm font-medium text-slate-600 dark:text-zinc-400">
           Generate secure RSA public/private key pairs locally in your browser.
         </p>
       </header>

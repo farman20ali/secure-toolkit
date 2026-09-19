@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseClientDataJson, parseAuthenticatorData } from './PasskeyTool'
+import { parseClientDataJson, parseAuthenticatorData } from './passkey-logic'
 
 describe('Passkey & WebAuthn Tool', () => {
   it('parses valid clientDataJSON string', () => {
