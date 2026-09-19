@@ -104,8 +104,8 @@ export default function SmtpTesterTool() {
   const [csvEmailCol, setCsvEmailCol] = useState<string>('')
   const [csvCcCol, setCsvCcCol] = useState<string>('')
   const [csvBccCol, setCsvBccCol] = useState<string>('')
-  const [staticMergeCc, setStaticMergeCc] = useState<string>('')
-  const [staticMergeBcc, setStaticMergeBcc] = useState<string>('')
+  const [staticMergeCc, _setStaticMergeCc] = useState<string>('')
+  const [staticMergeBcc, _setStaticMergeBcc] = useState<string>('')
   const [mergeDelayMs, setMergeDelayMs] = useState<number>(300)
   const [previewRowIdx, setPreviewRowIdx] = useState<number>(0)
   const abortMergeRef = useRef<boolean>(false)
@@ -278,7 +278,7 @@ export default function SmtpTesterTool() {
       const row = csvData.rows[i]
       const ccSource = csvCcCol ? csvCcCol : (staticMergeCc || config.ccEmail || undefined)
       const bccSource = csvBccCol ? csvBccCol : (staticMergeBcc || config.bccEmail || undefined)
-      const preview = buildMergePreview(row, csvEmailCol, config.subject, config.body, ccSource, bccSource)
+      const preview = buildMergePreview(row, csvEmailCol, config.subject ?? '', config.body ?? '', ccSource, bccSource)
       const to = preview.to
 
       try {
@@ -344,7 +344,7 @@ export default function SmtpTesterTool() {
       const activeRow = csvData.rows[previewRowIdx] ?? {}
       const ccSource = csvCcCol ? csvCcCol : (staticMergeCc || config.ccEmail || undefined)
       const bccSource = csvBccCol ? csvBccCol : (staticMergeBcc || config.bccEmail || undefined)
-      return buildMergePreview(activeRow, csvEmailCol, config.subject, config.body, ccSource, bccSource)
+      return buildMergePreview(activeRow, csvEmailCol, config.subject ?? '', config.body ?? '', ccSource, bccSource)
     }
     return {
       to: config.toEmail,

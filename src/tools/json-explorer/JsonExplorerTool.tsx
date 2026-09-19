@@ -127,9 +127,6 @@ export default function JsonExplorerTool() {
     setExpandedNodes((prev) => ({ ...prev, [nodeId]: !prev[nodeId] }))
   }
 
-  const expandAll = () => {
-    handleExpandDepth(-1)
-  }
 
   const collapseAll = () => {
     setExpandedNodes({})
