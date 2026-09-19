@@ -24,6 +24,8 @@ import PasswordAnalyzerTool from './tools/password-analyzer/PasswordAnalyzerTool
 import UrlAnalyzerTool from './tools/web-security/UrlAnalyzerTool'
 import FileSecurityTool from './tools/file-security/FileSecurityTool'
 import EncodingLabTool from './tools/encoding/EncodingLabTool'
+import SmtpTesterTool from './tools/smtp-tester/SmtpTesterTool'
+import JsonExplorerTool from './tools/json-explorer/JsonExplorerTool'
 
 function routerBasename(): string | undefined {
   const trimmed = import.meta.env.BASE_URL.replace(/\/$/, '')
@@ -41,6 +43,10 @@ function ToolRoute({ toolId }: { toolId: string }) {
     )
   }
   switch (toolId) {
+    case 'smtp-tester':
+      return <SmtpTesterTool />
+    case 'json-explorer':
+      return <JsonExplorerTool />
     case 'qr-barcode':
       return <QrBarcodeTool />
     case 'secret-scanner':
