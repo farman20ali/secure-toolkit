@@ -1,14 +1,142 @@
 @import 'tailwindcss';
 
+@variant dark (&:where(.dark, .dark *));
+@variant light (&:where(.light, .light *));
+
 @theme {
-  --font-sans: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  --font-mono: 'Cascadia Code', 'Consolas', 'Ubuntu Mono', monospace;
+  --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
 }
 
-html {
+/* Document level background & text defaults */
+html.dark {
   color-scheme: dark;
+  background-color: #09090b;
+  color: #f4f4f5;
+}
+
+html.light {
+  color-scheme: light;
+  background-color: #f8fafc;
+  color: #0f172a;
 }
 
 body {
-  @apply min-h-screen bg-zinc-950 text-zinc-100 antialiased;
+  min-height: 100vh;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* ==========================================================================
+   LIGHT MODE CONTRAST & LEGIBILITY OVERRIDES
+   ========================================================================== */
+
+/* Light mode text readability fixes */
+.light h1, .light h2, .light h3, .light h4, .light h5, .light h6 {
+  color: #0f172a !important; /* Slate 900 */
+}
+
+.light label {
+  color: #334155 !important; /* Slate 700 */
+  font-weight: 600 !important;
+}
+
+/* Muted text in light mode -> Slate 600 (High Contrast) */
+.light .text-zinc-400,
+.light .text-zinc-500,
+.light .text-slate-400,
+.light .text-slate-500 {
+  color: #475569 !important; /* Slate 600 */
+}
+
+/* Primary text in light mode -> Slate 900 */
+.light .text-zinc-50,
+.light .text-zinc-100,
+.light .text-zinc-200,
+.light .text-zinc-300 {
+  color: #0f172a !important; /* Slate 900 */
+}
+
+/* Emerald accent text in light mode -> Dark Emerald 700 */
+.light .text-emerald-400,
+.light .text-emerald-500 {
+  color: #047857 !important; /* Emerald 700 */
+}
+
+/* Container & panel background overrides for light mode */
+.light .bg-zinc-950,
+.light .bg-zinc-900,
+.light .bg-zinc-900\/30,
+.light .bg-zinc-900\/40,
+.light .bg-zinc-900\/50,
+.light .bg-zinc-900\/60,
+.light .bg-zinc-900\/80,
+.light .bg-zinc-900\/90,
+.light .bg-zinc-900\/95 {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+.light .bg-zinc-800,
+.light .bg-zinc-800\/60,
+.light .bg-zinc-800\/80 {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+/* Border overrides for light mode */
+.light .border-zinc-800,
+.light .border-zinc-700,
+.light .border-zinc-600 {
+  border-color: #cbd5e1 !important; /* Slate 300 */
+}
+
+/* Input & Form Control Overrides */
+.light input[type="text"],
+.light input[type="password"],
+.light input[type="number"],
+.light textarea,
+.light select {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+  font-weight: 500 !important;
+}
+
+.light input::placeholder,
+.light textarea::placeholder {
+  color: #94a3b8 !important; /* Slate 400 */
+}
+
+.light input:focus,
+.light textarea:focus,
+.light select:focus {
+  border-color: #059669 !important; /* Emerald 600 */
+  box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.2) !important;
+}
+
+/* Code Output Box in Light Mode */
+.light .code-output,
+.light code,
+.light pre {
+  background-color: #f1f5f9 !important;
+  color: #047857 !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* Buttons in Light Mode */
+.light .bg-emerald-600 {
+  background-color: #059669 !important;
+  color: #ffffff !important;
+}
+.light .bg-emerald-600:hover {
+  background-color: #047857 !important;
+}
+
+/* Scrollbar utilities */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

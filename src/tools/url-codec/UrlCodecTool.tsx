@@ -51,8 +51,11 @@ export default function UrlCodecTool() {
   return (
     <div className="space-y-8">
       <header className="space-y-2">
-        <h1 className="text-2xl font-bold text-zinc-50">URL Encode / Decode</h1>
-        <p className="text-sm text-zinc-400">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-zinc-50 flex items-center gap-2">
+          <span>🌐</span>
+          <span>URL Encode / Decode</span>
+        </h1>
+        <p className="text-sm font-medium text-slate-600 dark:text-zinc-400">
           Encode or decode URLs and parameter components safely. Runs entirely locally.
         </p>
       </header>

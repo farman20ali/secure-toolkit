@@ -74,9 +74,12 @@ export default function Base64Tool() {
   return (
     <div className="space-y-8">
       <header className="space-y-2">
-        <h1 className="text-2xl font-bold text-zinc-50">Base64 Encode / Decode</h1>
-        <p className="text-sm text-zinc-400">
-          Convert text to and from Base64 with full UTF-8 support and URL-safe mapping.
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-zinc-50 flex items-center gap-2">
+          <span>🔤</span>
+          <span>Base64 Encode / Decode</span>
+        </h1>
+        <p className="text-sm font-medium text-slate-600 dark:text-zinc-400">
+          Convert text to and from Base64 with UTF-8 support.
         </p>
       </header>
 
