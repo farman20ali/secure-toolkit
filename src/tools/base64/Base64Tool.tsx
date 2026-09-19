@@ -77,14 +77,23 @@ export default function Base64Tool() {
             for (let i = 0; i < binString.length; i++) {
               bytes[i] = binString.charCodeAt(i)
             }
-            const decoded = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
-            setOutput(decoded)
+            try {
+              const decoded = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+              setOutput(decoded)
+            } catch {
+              // If raw binary bytes (non-UTF-8), format cleanly as Hex bytes
+              const hex = Array.from(bytes)
+                .map((b) => b.toString(16).padStart(2, '0'))
+                .join(' ')
+                .toUpperCase()
+              setOutput(`HEX: ${hex}`)
+            }
             setError(null)
           }
         }
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)
-        setError(currentMode === 'decode' ? `Invalid ${currentScheme.toUpperCase()} input format.` : msg)
+        setError(currentMode === 'decode' ? `Invalid ${currentScheme.toUpperCase()} input format (must be valid Base64 string).` : msg)
         setOutput('')
       }
     },
