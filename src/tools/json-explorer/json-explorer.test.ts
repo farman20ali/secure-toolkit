@@ -8,12 +8,16 @@ import {
   compileSearchRegex,
   detectSchemaDiff,
   detectSecrets,
+  extractJsonFromText,
   fixSchemaViolations,
+  formatJsonPreservingComments,
   generateJsonSchema,
   generatePojoCode,
+  parseJavaDtoToJson,
   queryJsonPath,
   searchTreeNodes,
   sortJsonKeys,
+  sortJsonKeysPreservingComments,
   stripJsonComments,
   validateAgainstSchema,
   validateJson,
@@ -282,4 +286,227 @@ describe('json-explorer.logic', () => {
     })
     expect(result.totalMatches).toBe(1)
   })
+
+  it('converts Java DTO toString representations to valid JSON', () => {
+    const input = `UserSessionDto[sessionId=9876543210123, userId=4521, username=alex_mercer,
+status=ACTIVE, statusTimeStamp=2026-09-23 11:45:38,
+lastLoginTimeStamp=2026-09-23 11:45:38, rrn=2785423, channelId=WEB_PORTAL,
+transactionType=userSessionConfluent]`
+
+    const res = parseJavaDtoToJson(input)
+    expect(res.success).toBe(true)
+    expect(res.parsed).toEqual({
+      sessionId: '9876543210123',
+      userId: 4521,
+      username: 'alex_mercer',
+      status: 'ACTIVE',
+      statusTimeStamp: '2026-09-23 11:45:38',
+      lastLoginTimeStamp: '2026-09-23 11:45:38',
+      rrn: 2785423,
+      channelId: 'WEB_PORTAL',
+      transactionType: 'userSessionConfluent',
+    })
+  })
+
+  it('tolerates surrounding text and optional outer curly braces in Java DTO input', () => {
+    const surrounded = `some random log text
+UserSessionDto[sessionId=9876543210123, userId=4521]
+some additional log text`
+
+    const resSurrounded = parseJavaDtoToJson(surrounded)
+    expect(resSurrounded.success).toBe(true)
+    expect(resSurrounded.parsed.sessionId).toBe('9876543210123')
+    expect(resSurrounded.parsed.userId).toBe(4521)
+
+    const logLineWithTags = `2026-09-23 11:45:38 [INFO] Kafka Payload Received: UserSessionDto[sessionId=9876543210123, status=ACTIVE] - Processing finished.`
+    const resLog = parseJavaDtoToJson(logLineWithTags)
+    expect(resLog.success).toBe(true)
+    expect(resLog.parsed.sessionId).toBe('9876543210123')
+    expect(resLog.parsed.status).toBe('ACTIVE')
+
+    const logLineWithLoggerName = `2026-09-23 11:45:38 farman[INFO] Kafka Payload Received: UserSessionDto[sessionId=9876543210123, status=ACTIVE] - Processing finished.`
+    const resLoggerName = parseJavaDtoToJson(logLineWithLoggerName)
+    expect(resLoggerName.success).toBe(true)
+    expect(resLoggerName.parsed.sessionId).toBe('9876543210123')
+    expect(resLoggerName.parsed.status).toBe('ACTIVE')
+
+    const wrappedBraces = `{UserSessionDto[userId=4521, status=ACTIVE]}`
+    const resWrapped = parseJavaDtoToJson(wrappedBraces)
+    expect(resWrapped.success).toBe(true)
+    expect(resWrapped.parsed.userId).toBe(4521)
+    expect(resWrapped.parsed.status).toBe('ACTIVE')
+  })
+
+  it('parses nested DTOs and collections correctly', () => {
+    const nested = `UserDto[id=123, address=Address[city="San Francisco", country="USA"], active=true, tags=[admin, user]]`
+    const res = parseJavaDtoToJson(nested)
+    expect(res.success).toBe(true)
+    expect(res.parsed).toEqual({
+      id: 123,
+      address: { city: 'San Francisco', country: 'USA' },
+      active: true,
+      tags: ['admin', 'user'],
+    })
+
+    const listDto = `ResponseDto[data=[Item[id=1], Item[id=2]], status=SUCCESS]`
+    const resList = parseJavaDtoToJson(listDto)
+    expect(resList.success).toBe(true)
+    expect(resList.parsed).toEqual({
+      data: [{ id: 1 }, { id: 2 }],
+      status: 'SUCCESS',
+    })
+  })
+
+  it('extracts JSON surrounded by irrelevant log text', () => {
+    const raw = `some irrelevant log text
+{
+  "status": "ok",
+  "code": 200
+}
+some text at the end`
+
+    const extracted = extractJsonFromText(raw)
+    expect(extracted).not.toBeNull()
+    const parsed = JSON.parse(extracted!)
+    expect(parsed.status).toBe('ok')
+    expect(parsed.code).toBe(200)
+
+    const repaired = autoRepairJson(raw)
+    const val = validateJson(repaired)
+    expect(val.isValid).toBe(true)
+    expect(val.parsed.status).toBe('ok')
+  })
+
+  it('preserves comments by default during auto-repair', () => {
+    const jsonWithComments = `{
+      // Main user name comment
+      name: 'John Doe', // user's full name
+      age: 30, # age in years
+      tags: ["admin", "user",], /* block comment */
+    }`
+
+    const repaired = autoRepairJson(jsonWithComments)
+    expect(repaired).toContain('// Main user name comment')
+    expect(repaired).toContain("// user's full name")
+    expect(repaired).toContain('/* block comment */')
+
+    const val = validateJson(repaired)
+    expect(val.isValid).toBe(true)
+    expect(val.parsed.name).toBe('John Doe')
+    expect(val.parsed.age).toBe(30)
+  })
+
+  it('strips comments on demand when stripComments option is true', () => {
+    const jsonWithComments = `{
+      // Line comment
+      name: 'John Doe', /* Block comment */
+    }`
+
+    const stripped = autoRepairJson(jsonWithComments, { stripComments: true })
+    expect(stripped).not.toContain('Line comment')
+    expect(stripped).not.toContain('Block comment')
+  })
+
+  it('fixes stray single slashes (/ afaf, /2324) during auto-repair', () => {
+    const brokenSlashes = `{
+      name: 'John', / afaf
+      count: 10, /2324
+    }`
+
+    const repaired = autoRepairJson(brokenSlashes)
+    const val = validateJson(repaired)
+    expect(val.isValid).toBe(true)
+    expect(val.parsed.name).toBe('John')
+    expect(val.parsed.count).toBe(10)
+  })
+
+  it('preserves root JSON payload structure and keys when auto-repairing syntax errors on root properties', () => {
+    const brokenQuoteRoot = `{
+      "app": "Secure Toolkit, // Main application name
+      "version": 1.2,
+      "config": {
+        "maxConnections": 50
+      },
+      "security": {
+        "mfaEnabled": true
+      }
+    }`
+
+    const repairedQuote = autoRepairJson(brokenQuoteRoot)
+    const valQuote = validateJson(repairedQuote)
+    expect(valQuote.isValid).toBe(true)
+    expect(valQuote.parsed.app).toBeDefined()
+    expect(valQuote.parsed.config).toBeDefined()
+    expect(valQuote.parsed.security).toBeDefined()
+
+    const brokenSlashRoot = `{
+      "app": "Secure Toolkit" / farman
+      "version": 1.2,
+      "config": {
+        "maxConnections": 50
+      }
+    }`
+
+    const repairedSlash = autoRepairJson(brokenSlashRoot)
+    const valSlash = validateJson(repairedSlash)
+    expect(valSlash.isValid).toBe(true)
+    expect(valSlash.parsed.app).toBe('Secure Toolkit')
+    expect(valSlash.parsed.config.maxConnections).toBe(50)
+  })
+
+  it('formats JSON while preserving all line and inline comments', () => {
+    const rawWithComments = `{
+"app": "Secure Toolkit", // Main app
+"version": 1.2, -- current version
+"status": "active" # system status
+}`
+    const formatted = formatJsonPreservingComments(rawWithComments, 2)
+    expect(formatted).toContain('// Main app')
+    expect(formatted).toContain('-- current version')
+    expect(formatted).toContain('# system status')
+    expect(formatted).toContain('  "app": "Secure Toolkit",')
+
+    const val = validateJson(formatted)
+    expect(val.isValid).toBe(true)
+    expect(val.parsed.app).toBe('Secure Toolkit')
+  })
+
+  it('sorts JSON keys (A-Z and Z-A) while preserving leading and inline comments on properties', () => {
+    const unsortedWithComments = `{
+  "version": 1.2, // version comment
+  // Main title comment
+  "app": "Secure Toolkit",
+  "status": "active" # status comment
+}`
+
+    const sortedAZ = sortJsonKeysPreservingComments(unsortedWithComments, false, 2)
+    expect(sortedAZ).toContain('// Main title comment')
+    expect(sortedAZ).toContain('// version comment')
+    expect(sortedAZ).toContain('# status comment')
+
+    const linesAZ = sortedAZ.split('\n').map((l) => l.trim())
+    const appIdx = linesAZ.findIndex((l) => l.includes('"app"'))
+    const statusIdx = linesAZ.findIndex((l) => l.includes('"status"'))
+    const versionIdx = linesAZ.findIndex((l) => l.includes('"version"'))
+
+    expect(appIdx).toBeLessThan(statusIdx)
+    expect(statusIdx).toBeLessThan(versionIdx)
+
+    const valAZ = validateJson(sortedAZ)
+    expect(valAZ.isValid).toBe(true)
+    expect(valAZ.parsed.app).toBe('Secure Toolkit')
+    expect(valAZ.parsed.version).toBe(1.2)
+
+    const sortedZA = sortJsonKeysPreservingComments(unsortedWithComments, true, 2)
+    const linesZA = sortedZA.split('\n').map((l) => l.trim())
+    const appIdxZA = linesZA.findIndex((l) => l.includes('"app"'))
+    const versionIdxZA = linesZA.findIndex((l) => l.includes('"version"'))
+
+    expect(versionIdxZA).toBeLessThan(appIdxZA)
+
+    const valZA = validateJson(sortedZA)
+    expect(valZA.isValid).toBe(true)
+  })
 })
+
+
