@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import {
   analyzeMetrics,
   autoRepairJson,
@@ -7,12 +7,14 @@ import {
   detectSecrets,
   detectSchemaDiff,
   fixSchemaViolations,
+  formatJsonPreservingComments,
   generateJsonSchema,
   generatePojoCode,
   getExpandedNodeIdsByDepth,
+  parseJavaDtoToJson,
   queryJsonPath,
   searchTreeNodes,
-  sortJsonKeys,
+  sortJsonKeysPreservingComments,
   stripJsonComments,
   validateAgainstSchema,
   validateJson,
@@ -71,8 +73,23 @@ const SAMPLE_JSON = `{
 }`
 
 export default function JsonExplorerTool() {
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [rawInput, setRawInput] = useState<string>(SAMPLE_JSON)
-  const [activeTab, setActiveTab] = useState<'editor' | 'tree' | 'graph' | 'pojo' | 'schemaguard' | 'schema' | 'security'>('editor')
+  const [activeTab, setActiveTab] = useState<'editor' | 'tree' | 'graph' | 'dto' | 'pojo' | 'schemaguard' | 'schema' | 'security'>('editor')
+
+  const handleJumpToLine = (lineNumber: number) => {
+    if (!textareaRef.current) return
+    const lines = rawInput.split('\n')
+    let charIndex = 0
+    for (let i = 0; i < lineNumber - 1 && i < lines.length; i++) {
+      charIndex += lines[i].length + 1
+    }
+    const lineLength = lines[lineNumber - 1] ? lines[lineNumber - 1].length : 0
+    textareaRef.current.focus()
+    textareaRef.current.setSelectionRange(charIndex, charIndex + lineLength)
+    const lineHeight = 20
+    textareaRef.current.scrollTop = Math.max(0, (lineNumber - 3) * lineHeight)
+  }
 
   // Search & Query state
   const [searchQuery, setSearchQuery] = useState('')
@@ -81,6 +98,32 @@ export default function JsonExplorerTool() {
   const [jsonPathQuery, setJsonPathQuery] = useState('')
   const [copiedItem, setCopiedItem] = useState<string | null>(null)
   const [repairNotice, setRepairNotice] = useState<string | null>(null)
+
+  // Java DTO Converter State
+  const [dtoInput, setDtoInput] = useState<string>(
+    `UserSessionDto[sessionId=9876543210123, userId=4521, username=alex_mercer,\nstatus=ACTIVE, statusTimeStamp=2026-09-23 11:45:38,\nlastLoginTimeStamp=2026-09-23 11:45:38, rrn=2785423, channelId=WEB_PORTAL,\ntransactionType=userSessionConfluent, roles=[admin, auditor],\nprofile=UserProfileDto[firstName=Alex, lastName=Mercer, email=alex@example.com],\nscore=98.50, isVerified=true, metadata=null]`
+  )
+  const [dtoOutput, setDtoOutput] = useState<string>('')
+  const [dtoError, setDtoError] = useState<string | null>(null)
+
+  const handleConvertDto = (textToConvert?: string) => {
+    const target = textToConvert !== undefined ? textToConvert : dtoInput
+    const res = parseJavaDtoToJson(target)
+    if (res.success && res.json) {
+      setDtoOutput(res.json)
+      setDtoError(null)
+    } else {
+      setDtoOutput('')
+      setDtoError(res.error || 'Failed to convert Java DTO string')
+    }
+  }
+
+  const handleStripComments = () => {
+    const stripped = stripJsonComments(rawInput).trim()
+    setRawInput(stripped)
+    setRepairNotice('✂️ Successfully stripped all comments from JSON input!')
+    setTimeout(() => setRepairNotice(null), 3000)
+  }
 
   // SchemaGuard State
   const [schemaInput, setSchemaInput] = useState<string>('')
@@ -137,7 +180,7 @@ export default function JsonExplorerTool() {
 
   const handleFormat = (indent: number) => {
     if (!isParsedValid) return
-    setRawInput(JSON.stringify(data, null, indent))
+    setRawInput(formatJsonPreservingComments(rawInput, indent))
   }
 
   const handleMinify = () => {
@@ -147,8 +190,7 @@ export default function JsonExplorerTool() {
 
   const handleSortKeys = (reverse: boolean = false) => {
     if (!isParsedValid) return
-    const sorted = sortJsonKeys(data, reverse, true)
-    setRawInput(JSON.stringify(sorted, null, 2))
+    setRawInput(sortJsonKeysPreservingComments(rawInput, reverse, 2))
     setRepairNotice(reverse ? '🔀 Keys sorted Z to A!' : '🔀 Keys sorted A to Z!')
     setTimeout(() => setRepairNotice(null), 3000)
   }
@@ -292,6 +334,7 @@ export default function JsonExplorerTool() {
             { id: 'editor', label: 'Raw Editor & Repair', icon: '✏️' },
             { id: 'tree', label: 'Interactive Tree View', icon: '🌳' },
             { id: 'graph', label: 'Visual Flowchart Graph', icon: '🕸️' },
+            { id: 'dto', label: 'Java DTO Converter', icon: '☕' },
             { id: 'pojo', label: 'POJO & Class Generator', icon: '💻' },
             { id: 'schemaguard', label: 'SchemaGuard', icon: '🛡️' },
             { id: 'schema', label: 'Diagnostics & Schema', icon: '📋' },
@@ -334,8 +377,33 @@ export default function JsonExplorerTool() {
               <button
                 onClick={handleAutoRepair}
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-600 hover:bg-amber-500 text-white transition-all shadow-md shadow-amber-600/20 flex items-center gap-1.5"
+                title="Auto-repair JSON syntax (unquoted keys, single quotes, trailing commas) preserving comments"
               >
                 <span>🛠️</span> Auto-Repair Syntax
+              </button>
+              <button
+                onClick={handleStripComments}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 dark:text-rose-300 transition-all border border-rose-200 dark:border-rose-800/60 flex items-center gap-1"
+                title="Strip all comments (//, /* */, #, --) from JSON input"
+              >
+                <span>✂️</span> Strip Comments
+              </button>
+              <button
+                onClick={() => {
+                  const res = parseJavaDtoToJson(rawInput)
+                  if (res.success && res.json) {
+                    setRawInput(res.json)
+                    setRepairNotice('☕ Successfully converted Java DTO string to valid JSON!')
+                    setTimeout(() => setRepairNotice(null), 4000)
+                  } else {
+                    setRepairNotice(`⚠️ DTO Conversion Failed: ${res.error}`)
+                    setTimeout(() => setRepairNotice(null), 4000)
+                  }
+                }}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-all shadow-md shadow-emerald-600/20 flex items-center gap-1.5"
+                title="Convert Java DTO toString representation in editor into valid JSON"
+              >
+                <span>☕</span> DTO → JSON
               </button>
               <button
                 onClick={() => handleFormat(2)}
@@ -391,17 +459,28 @@ export default function JsonExplorerTool() {
 
           {/* Validation Banner */}
           {!validation.isValid ? (
-            <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-900 dark:bg-rose-950/40 dark:border-rose-800/60 dark:text-rose-300 rounded-xl text-xs flex items-center justify-between">
+            <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-900 dark:bg-rose-950/40 dark:border-rose-800/60 dark:text-rose-300 rounded-xl text-xs flex flex-wrap items-center justify-between gap-2">
               <div>
                 <strong>❌ JSON Syntax Error at Line {validation.error?.line}, Column {validation.error?.column}:</strong>{' '}
                 {validation.error?.message}
               </div>
-              <button
-                onClick={handleAutoRepair}
-                className="underline font-semibold hover:text-slate-900 dark:hover:text-white"
-              >
-                Try 1-Click Auto Repair
-              </button>
+              <div className="flex items-center gap-3">
+                {validation.error?.line !== undefined && (
+                  <button
+                    onClick={() => handleJumpToLine(validation.error!.line)}
+                    className="px-2.5 py-1 bg-rose-200 dark:bg-rose-900/60 hover:bg-rose-300 dark:hover:bg-rose-800 text-rose-900 dark:text-rose-100 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 shadow-xs"
+                    title={`Highlight and focus line ${validation.error.line} in the editor`}
+                  >
+                    <span>📍</span> Jump to Line {validation.error.line}
+                  </button>
+                )}
+                <button
+                  onClick={handleAutoRepair}
+                  className="underline font-semibold hover:text-slate-900 dark:hover:text-white"
+                >
+                  Try 1-Click Auto Repair
+                </button>
+              </div>
             </div>
           ) : (
             <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-900 dark:bg-emerald-950/30 dark:border-emerald-800/40 dark:text-emerald-300 rounded-xl text-xs flex items-center justify-between">
@@ -416,13 +495,36 @@ export default function JsonExplorerTool() {
             </div>
           )}
 
-          {/* Code Textarea */}
-          <div className="relative">
+          {/* Code Textarea with Line Number Gutter */}
+          <div className="relative flex border border-slate-300 dark:border-slate-800 rounded-2xl overflow-hidden bg-slate-50 dark:bg-slate-950 focus-within:border-blue-500 transition-colors">
+            {/* Line Number Gutter */}
+            <div className="select-none py-4 px-3 bg-slate-200/60 dark:bg-slate-900/80 text-slate-700 dark:text-slate-400 font-mono text-xs text-right border-r border-slate-300 dark:border-slate-800 space-y-0.5 min-w-[44px]">
+              {rawInput.split('\n').map((_, idx) => {
+                const lineNum = idx + 1
+                const isErrorLine = !validation.isValid && validation.error?.line === lineNum
+                return (
+                  <div
+                    key={lineNum}
+                    onClick={() => handleJumpToLine(lineNum)}
+                    className={`cursor-pointer hover:text-blue-500 transition-colors leading-relaxed ${
+                      isErrorLine ? 'bg-rose-500 text-white font-bold px-1 rounded-xs shadow-xs' : ''
+                    }`}
+                    title={`Click to jump to line ${lineNum}`}
+                  >
+                    {lineNum}
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Textarea */}
             <textarea
+              ref={textareaRef}
               value={rawInput}
               onChange={(e) => setRawInput(e.target.value)}
               placeholder="Paste raw JSON here (comments like // or -- are supported)..."
-              className="w-full h-[450px] bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-2xl p-4 font-mono text-xs text-slate-900 dark:text-slate-200 focus:outline-none focus:border-blue-500 leading-relaxed resize-y"
+              rows={18}
+              className="w-full flex-1 p-4 bg-transparent font-mono text-xs text-slate-900 dark:text-slate-200 focus:outline-none leading-relaxed resize-y"
             />
           </div>
         </div>
@@ -739,6 +841,147 @@ export default function JsonExplorerTool() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Tab: Java DTO Converter */}
+      {activeTab === 'dto' && (
+        <div className="space-y-6">
+          <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <span>☕</span> Java DTO String → JSON Converter
+                </h2>
+                <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm mt-1">
+                  Convert Java DTO <code className="text-blue-500 font-mono">toString()</code> strings (Record, Lombok <code className="text-blue-500 font-mono">@ToString</code>, Apache Commons, IDE generated) into valid JSON. Tolerates surrounding log noise, outer <code className="text-blue-500 font-mono">{`{...}`}</code> wrappers, nested DTOs, and arrays.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => {
+                    const sample = `UserSessionDto[sessionId=9876543210123, userId=4521, username=alex_mercer,\nstatus=ACTIVE, statusTimeStamp=2026-09-23 11:45:38,\nlastLoginTimeStamp=2026-09-23 11:45:38, rrn=2785423, channelId=WEB_PORTAL,\ntransactionType=userSessionConfluent, roles=[admin, auditor],\nprofile=UserProfileDto[firstName=Alex, lastName=Mercer, email=alex@example.com],\nscore=98.50, isVerified=true, metadata=null]`
+                    setDtoInput(sample)
+                    handleConvertDto(sample)
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-all border border-slate-200 dark:border-slate-700"
+                >
+                  📋 Preset 1: Standard DTO
+                </button>
+                <button
+                  onClick={() => {
+                    const sample = `UserDto[id=101, name="Alex Mercer", address=AddressDto[city="San Francisco", country="USA"], roles=[admin, auditor], active=true]`
+                    setDtoInput(sample)
+                    handleConvertDto(sample)
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-all border border-slate-200 dark:border-slate-700"
+                >
+                  📋 Preset 2: Nested DTO
+                </button>
+                <button
+                  onClick={() => {
+                    const sample = `2026-09-23 11:45:38 [INFO] Kafka Payload Received: UserSessionDto[sessionId=9876543210123, status=ACTIVE] - Processing finished.`
+                    setDtoInput(sample)
+                    handleConvertDto(sample)
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-all border border-slate-200 dark:border-slate-700"
+                >
+                  📋 Preset 3: DTO inside Log Text
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Input Area */}
+              <div className="space-y-3 flex flex-col">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Java DTO / toString() Input
+                  </label>
+                  <button
+                    onClick={() => {
+                      setDtoInput('')
+                      setDtoOutput('')
+                      setDtoError(null)
+                    }}
+                    className="text-xs text-rose-500 hover:underline font-medium"
+                  >
+                    Clear Input
+                  </button>
+                </div>
+                <textarea
+                  value={dtoInput}
+                  onChange={(e) => setDtoInput(e.target.value)}
+                  placeholder="Paste Java DTO toString() representation here..."
+                  rows={14}
+                  className="w-full flex-1 font-mono text-xs sm:text-sm p-4 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none resize-y text-slate-900 dark:text-slate-100"
+                />
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => handleConvertDto()}
+                    className="px-5 py-2.5 rounded-xl font-semibold text-sm bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/25 transition-all flex items-center gap-2"
+                  >
+                    <span>⚡</span> Convert DTO → JSON
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (dtoOutput) {
+                        setRawInput(dtoOutput)
+                        setActiveTab('editor')
+                        setRepairNotice('✅ Loaded converted DTO JSON into Raw Editor!')
+                        setTimeout(() => setRepairNotice(null), 3000)
+                      }
+                    }}
+                    disabled={!dtoOutput}
+                    className="px-4 py-2.5 rounded-xl font-medium text-sm bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 disabled:opacity-40 text-slate-800 dark:text-slate-200 transition-all border border-slate-300 dark:border-slate-700"
+                  >
+                    🚀 Open in Raw Explorer
+                  </button>
+                </div>
+              </div>
+
+              {/* Output Area */}
+              <div className="space-y-3 flex flex-col">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Formatted JSON Output
+                  </label>
+                  {dtoOutput && (
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => handleCopy(dtoOutput, 'dto')}
+                        className="text-xs text-blue-600 dark:text-blue-400 font-semibold hover:underline"
+                      >
+                        {copiedItem === 'dto' ? '✓ Copied JSON' : '📋 Copy JSON'}
+                      </button>
+                      <button
+                        onClick={() => setDtoOutput('')}
+                        className="text-xs text-rose-500 hover:underline font-medium"
+                      >
+                        Clear Output
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {dtoError ? (
+                  <div className="p-4 rounded-xl border bg-rose-50 border-rose-200 text-rose-900 dark:bg-rose-950/40 dark:border-rose-800/60 dark:text-rose-300 text-xs space-y-1 font-mono">
+                    <strong>❌ Conversion Error:</strong>
+                    <p>{dtoError}</p>
+                  </div>
+                ) : dtoOutput ? (
+                  <pre className="w-full flex-1 font-mono text-xs sm:text-sm p-4 bg-slate-900 text-slate-100 border border-slate-800 rounded-xl overflow-x-auto overflow-y-auto max-h-[420px]">
+                    <code>{dtoOutput}</code>
+                  </pre>
+                ) : (
+                  <div className="w-full flex-1 flex flex-col items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-800 rounded-xl p-8 text-center text-slate-400 min-h-[300px]">
+                    <span className="text-4xl mb-2">☕</span>
+                    <p className="text-xs font-medium">Paste a Java DTO string and click "Convert DTO → JSON" to see the output.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
